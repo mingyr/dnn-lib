@@ -67,6 +67,7 @@ def test_metrics():
         print("accu -> {}".format(accu))
 
 def test_channorm():
+    
     s = tf.constant([
         [
             [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
@@ -74,6 +75,12 @@ def test_channorm():
             [[19, 20, 21], [22, 23, 24], [25, 26, 27]]
         ]
     ], tf.float32)
+    
+
+    '''
+    s = tf.constant([[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+                     [9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0]], dtype = tf.float32)
+    '''
 
     b = ChanNorm()(s)
 
@@ -424,11 +431,11 @@ def test_subpixel_shuffle_2():
 if __name__ == "__main__":
     # test_tfver()
     # test_metrics()
-    # test_channorm()
+    test_channorm()
     # test_pixelnorm()
 
     # test_subpixel_shuffle()
-    test_subpixel_shuffle_2()
+    # test_subpixel_shuffle_2()
 
     # test_weightedsychronizer()
     # test_t2b()

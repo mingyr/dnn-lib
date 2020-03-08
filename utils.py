@@ -1,8 +1,9 @@
 import os, sys
+import math
 import numpy as np
 import tensorflow as tf
 import sonnet as snt
-
+import pdb
 from tensorflow.python.layers import normalization
 
 class TFVer(object):
@@ -63,8 +64,7 @@ class AvgPool(snt.AbstractModule):
         self._padding = padding
 
     def _build(self, inputs):
-        return tf.nn.avg_pool(inputs, ksize = [1, self._k, self._k, 1],
-                              strides = [1, self._k, self._k, 1], padding = self._padding)
+        return tf.nn.avg_pool2d(inputs, self._k, self._k, self._padding)
 
 class MaxPool(snt.AbstractModule):
     def __init__(self, k = 2, padding = 'SAME', name = "max_pool"):
@@ -73,8 +73,7 @@ class MaxPool(snt.AbstractModule):
         self._padding = padding
 
     def _build(self, inputs):
-        return tf.nn.max_pool(inputs, ksize = [1, self._k, self._k, 1],
-                              strides = [1, self._k, self._k, 1], padding = self._padding)
+        return tf.nn.max_pool2d(inputs, self._k, self._k, self._padding)
 
 class Pooling:
     def __init__(self, pool = None, k = 2, padding = 'SAME', verbose = False):
@@ -125,7 +124,7 @@ class LossClassification(snt.AbstractModule):
         self._gpu = gpu
 
     def _build(self, logits, labels):
-        labels = tf.one_hot(labels, self._num_classes, axis = -1)
+        labels = tf.one_hot(labels, self._num_classes)
         if self._gpu:
             loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels = labels, logits = logits)
         else:
@@ -384,16 +383,18 @@ class BatchNorm(snt.AbstractModule):
         if var not in tf.get_collection(tf.GraphKeys.MOVING_AVERAGE_VARIABLES):
             tf.add_to_collection(tf.GraphKeys.MOVING_AVERAGE_VARIABLES, var)
 
+
 class ChanNorm(snt.AbstractModule):
     def __init__(self, name = "chan_norm"):
         super(ChanNorm, self).__init__(name = name)
 
     def _build(self, inputs, is_training = True):
-        m, var = tf.nn.moments(inputs, range(1, inputs.get_shape().ndims - 1))
-        last_dim = inputs.get_shape().as_list()[-1]
-        m = tf.reshape(m, [-1] + [1] * (inputs.get_shape().ndims - 2) + [last_dim])
-        var = tf.reshape(var, [-1] + [1] * (inputs.get_shape().ndims - 2) + [last_dim])
-        outputs = (inputs - m) / (tf.sqrt(var) + np.finfo(np.float32).eps)
+        if inputs.get_shape().ndims > 2:
+            m, var = tf.nn.moments(inputs, list(range(1, inputs.get_shape().ndims - 1)), keepdims = True)
+        else:
+            m, var = tf.nn.moments(inputs, [1], keepdims = True)
+
+        outputs = (inputs - m) / (var + np.finfo(np.float32).eps)
 
         return outputs
 
@@ -714,4 +715,45 @@ class T2B(snt.AbstractModule):
 
         return powers
 
+def draw_image(images, tensor_name = "images"):
+    import tfmpl
+
+    @tfmpl.figure_tensor
+    def draw(images):
+        num_figs = len(images)
+
+        height = math.ceil(num_figs / 2)
+
+        # draw figures in two column
+        fig = tfmpl.create_figures(1, figsize= (12.8 if num_figs > 1 else 6.4, 4.8 * height))[0]
+
+        # pdb.set_trace()
+        for i in range(height):
+            for j in range(2):
+                seq = i * 2 + j + 1
+                if seq > num_figs:
+                    fig.tight_layout()
+                    return fig
+
+                if num_figs == 1:
+                    ax = fig.add_subplot(1, 1, 1)
+                else:
+                    ax = fig.add_subplot(height, 2, seq)
+
+                ax = fig.add_subplot(height, 2, seq)
+                ax.axis('off')
+                ax.imshow(images[seq-1]['data'])
+                ax.set_title(images[seq-1]['title'], fontsize = 24)
+
+        fig.tight_layout()
+
+        return fig
+
+    image_tensor = draw(images)
+    image_summary = tf.summary.image(tensor_name, image_tensor)
+    sess = tf.get_default_session()
+    assert sess != None, "Invalid session"
+    image_str = sess.run(image_summary)
+
+    return image_str
 
