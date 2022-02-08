@@ -91,24 +91,25 @@ class Pooling:
         return self._pool(x)
  
 class Dropout(snt.AbstractModule):
-    def __init__(self, rate = 0.5, training = True, 
-                 noise_shape = None, seed = None, name = "Dropout"):
+    def __init__(self, keep_prob, is_training, seed = None, name = "dropout"):
         super(Dropout, self).__init__(name = name)
-        self._rate = rate
-        self._training = training
-        self._noise_shape = noise_shape
+        self._keep_prob = keep_prob
+        self._is_training = is_training
         self._seed = seed
 
     def _build(self, inputs):
-        return tf.layers.dropout(inputs, self._rate, training = self._training)
+        if self._is_training:
+            return tf.identity(inputs)
+        else:
+            return tf.nn.dropout(inputs, keep_prob = (1 - rate), seed = self._seed, rate = self._rate)
 
 class LossRegression(snt.AbstractModule):
-    def __init__(self, gpu = False, name = "loss_regression"):
+    def __init__(self, sanity_check = False, name = "loss_regression"):
         super(LossRegression, self).__init__(name = name)
-        self._gpu = gpu
+        self._sanity_check = sanity_check
 
     def _build(self, logits, labels):
-        if self._gpu:
+        if self._sanity_check:
             loss = tf.reduce_mean(tf.squared_difference(logits, labels), name = 'loss')
         else:
             with tf.control_dependencies([tf.assert_equal(tf.rank(labels), tf.rank(logits))]):
@@ -117,15 +118,15 @@ class LossRegression(snt.AbstractModule):
         return loss
 
 class LossClassification(snt.AbstractModule):
-    def __init__(self, num_classes, gpu = False, name = 'loss_classification'):
+    def __init__(self, num_classes, sanity_check = False, name = 'loss_classification'):
         super(LossClassification, self).__init__(name = name)
         assert(num_classes > 1), "invalid number of classes"
         self._num_classes = num_classes 
-        self._gpu = gpu
+        self._sanity_check = sanity_check
 
     def _build(self, logits, labels):
         labels = tf.one_hot(labels, self._num_classes)
-        if self._gpu:
+        if self._sanity_check:
             loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels = labels, logits = logits)
         else:
             with tf.control_dependencies([tf.assert_equal(tf.rank(labels), tf.rank(logits))]):
@@ -136,12 +137,12 @@ class LossClassification(snt.AbstractModule):
         return loss
 
 class ValRegression(snt.AbstractModule):
-    def __init__(self, gpu = False, name = "val_regression"):
+    def __init__(self, sanity_check = False, name = "val_regression"):
         super(ValRegression, self).__init__(name = name)
-        self._gpu = gpu
+        self._sanity_check = sanity_check
 
     def _build(self, logits, labels):
-        if self._gpu:
+        if self._sanity_check:
             loss = tf.sqrt(tf.reduce_mean(tf.squared_difference(logits, labels)), name = 'val_deviation')
         else:
             with tf.control_dependencies([tf.assert_equal(tf.rank(labels), tf.rank(logits))]):
@@ -150,14 +151,14 @@ class ValRegression(snt.AbstractModule):
         return loss
 
 class ValClassification(snt.AbstractModule):
-    def __init__(self, gpu = False, name = "val_classification"):
+    def __init__(self, sanity_check = False, name = "val_classification"):
         super(ValClassification, self).__init__(name = name)
-        self._gpu = gpu
+        self._sanity_check = sanity_check
 
     def _build(self, logits, labels):
         logits = tf.argmax(logits, -1)
 
-        if self._gpu:
+        if self._sanity_check:
             prediction = tf.equal(labels, logits)
         else:
             with tf.control_dependencies([tf.assert_equal(tf.rank(labels), tf.rank(logits))]):
@@ -168,12 +169,12 @@ class ValClassification(snt.AbstractModule):
         return accuracy
 
 class TestRegression(snt.AbstractModule):
-    def __init__(self, gpu = False, name = "test_regression"):
+    def __init__(self, sanity_check = False, name = "test_regression"):
         super(TestRegression, self).__init__(name = name)
-        self._gpu = gpu
+        self._sanity_check = sanity_check
 
     def _build(self, logits, labels):
-        if self._gpu:
+        if self._sanity_check:
             loss = tf.sqrt(tf.reduce_mean(tf.squared_difference(logits, labels)), name = 'test_deviation')
         else:
             with tf.control_dependencies([tf.assert_equal(tf.rank(logits), tf.rank(labels))]):
@@ -182,13 +183,13 @@ class TestRegression(snt.AbstractModule):
         return loss
 
 class TestClassification(snt.AbstractModule):
-    def __init__(self, gpu = False, name = "test_classification"):
+    def __init__(self, sanity_check = False, name = "test_classification"):
         super(TestClassification, self).__init__(name = name)
-        self._gpu = gpu
+        self._sanity_check = sanity_check
 
     def _build(self, logits, labels):
         logits = tf.argmax(logits, -1)
-        if self._gpu:
+        if self._sanity_check:
             prediction = tf.equal(labels, logits)
         else:
             with tf.control_dependencies([tf.assert_equal(tf.rank(labels), tf.rank(logits))]):
@@ -756,4 +757,60 @@ def draw_image(images, tensor_name = "images"):
     image_str = sess.run(image_summary)
 
     return image_str
+    
 
+class Pad2D(snt.AbstractModule):
+    def __init__(self, pad, mode = 'CONSTANT', data_format = 'NHWC', name = "pad2d"):
+        super(Pad2D, self).__init__(name = name)
+        self._pad = pad
+        self._mode = mode
+        self._data_format = data_format
+        
+    def _build(self, inputs):
+        # Padding shape.
+        if self._data_format == 'NHWC':
+            paddings = [[0, 0], [0, self._pad[0]], [0, self._pad[1]], [0, 0]]
+        elif self._data_format == 'NCHW':
+            paddings = [[0, 0], [0, 0], [0, self._pad[0]], [0, self._pad[1]]]
+        else:
+            raise ValueError("Unknown data format: {}".format(self._data_format))
+            
+        return tf.pad(inputs, paddings, mode = self._mode)
+
+
+def draw_image_v2(images, rows, cols, tensor_name = "images"):
+    import tfmpl
+
+    @tfmpl.figure_tensor
+    def draw(images):
+        num_figs = len(images)
+        fig = tfmpl.create_figures(1, figsize= (12.8, 12.8))[0]
+
+        # pdb.set_trace()
+        for i in range(rows):
+            for j in range(cols):
+                seq = i * cols + j + 1
+                if seq > num_figs:
+                    fig.tight_layout()
+                    return fig
+
+                if num_figs == 1:
+                    ax = fig.add_subplot(1, 1, 1)
+                else:
+                    ax = fig.add_subplot(rows, cols, seq)
+
+                ax.axis('off')
+                ax.imshow(images[seq-1, ...])
+
+        fig.tight_layout()
+        return fig
+
+    image_tensor = draw(images)
+    image_summary = tf.summary.image(tensor_name, image_tensor)
+    sess = tf.get_default_session()
+    assert sess != None, "Invalid session"
+    image_str = sess.run(image_summary)
+
+    return image_str
+
+        
