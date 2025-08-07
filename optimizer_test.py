@@ -1,37 +1,40 @@
-from optimizer import *
-
 def test():
     # X and Y data
-    x_train = [1, 2, 3]
-    y_train = [1, 2, 3]
+    from flax import nnx
+    from utils import LossRegression
 
-    W = tf.Variable(tf.random_normal([1]), name='weight')
-    b = tf.Variable(tf.random_normal([1]), name='bias')
+    x_train = jax.numpy.array([[1.0], [2.0], [3.0]], dtype=jax.numpy.float32)
+    y_train = jax.numpy.array([[1.0], [2.0], [3.0]], dtype=jax.numpy.float32)
 
-    # Our hypothesis XW+b
-    hypothesis = x_train * W + b
+    class Model(nnx.Module):
+        def __init__(self, rngs=nnx.Rngs(0)):
+            self._W = nnx.Param(jax.random.normal(rngs.params(), (1)))
+            self._b = nnx.Param(jax.numpy.zeros((1)))
+        def __call__(self, x):
+            # Our hypothesis XW+b
+            y = x * self._W + self._b
+
+            return y
 
     # cost/loss function
-    cost = tf.reduce_mean(tf.square(hypothesis - y_train))
+    model = Model()
+
+    loss_fn = LossRegression(model)
 
     learning_rate = 0.01
 
     # Minimize
-    optimizer = Adam()
+    # optimizer = Adam(model, loss_fn)
+    # optimizer = RMSProp(model, loss_fn)
+    optimizer = SGD(model, loss_fn, 100000)
+
     # optimizer = RMSProp(lr_decay = False)
-    train = optimizer(cost)
+    loss = optimizer(x_train, y_train)
 
     # Launch the graph in a session.
-    sess = tf.Session()
-    # Initializes global variables in the graph.
-    sess.run(tf.global_variables_initializer())
-
-    # Fit the line
-    for step in range(2001):
-        sess.run(train)
-        if step % 20 == 0:
-            print(step, sess.run(cost), sess.run(W), sess.run(b))
+    print(loss)
 
 if __name__ == '__main__':
     test()
+
 
