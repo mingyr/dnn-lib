@@ -10,10 +10,6 @@ import orbax.checkpoint as ocp
 from pathlib import Path
 from functools import partial
 
-# Note:
-# Ordinary class definition allows underscore preceeding member variables
-# Classes inherited from nnx.Module avoid doing so
-
 class JAXVer:
     def __init__(self, jax=None):
         assert jax

@@ -2,15 +2,6 @@ import jax
 from flax import nnx
 import optax
 
-#
-# Note:
-# To cater to the functional programming paradigm of JAX, 
-# you CANNOT directly jit the object's invoking method. 
-# Instead, you should do in the following way:
-# 
-#   loss, _ = nnx.jit(Adam.__call__)(optimizer, x, y)
-# 
-
 class Adam(nnx.Module):
     def __init__(self, model, loss_fn, learning_rate=0.01, lr_decay=False, 
                  lr_decay_steps=None, lr_decay_factor=None, clip=False, clip_value=1.0):
