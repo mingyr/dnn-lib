@@ -2,11 +2,20 @@ import jax
 from flax import nnx
 import optax
 
+#
+# Note:
+# To cater to the functional programming paradigm of JAX, 
+# you CANNOT directly jit the object's invoking method. 
+# Instead, you should do in the following way:
+# 
+#   loss, _ = nnx.jit(Adam.__call__)(optimizer, x, y)
+# 
+
 class Adam(nnx.Module):
     def __init__(self, model, loss_fn, learning_rate=0.01, lr_decay=False, 
                  lr_decay_steps=None, lr_decay_factor=None, clip=False, clip_value=1.0):
-        self._model = model
-        self._loss_fn = loss_fn
+        self.model = model
+        self.loss_fn = loss_fn
 
         if lr_decay:
             assert lr_decay_steps > 0 and lr_decay_factor > 0, "Invalid learning rate factors"
@@ -21,20 +30,21 @@ class Adam(nnx.Module):
         else:
             opt = optax.adam(learning_rate=lr)
 
-        self._optimizer = nnx.Optimizer(model, opt, wrt=nnx.Param)
+        self.optimizer = nnx.Optimizer(model, opt, wrt=nnx.Param)
 
     def __call__(self, inputs, labels):
-        loss, grads = nnx.value_and_grad(self._loss_fn)(self._model, inputs, labels)
-        self._optimizer.update(grads)
+        grad_loss_fn = nnx.value_and_grad(self.loss_fn, has_aux=True)
+        (loss, logits), grads = grad_loss_fn(self.model, inputs, labels)
+        self.optimizer.update(grads)
 
-        return loss
+        return loss, logits
 
 
 class RMSProp(nnx.Module):
     def __init__(self, model, loss_fn, learning_rate=0.01, epsilon=1e-10, lr_decay=False,
                  lr_decay_steps=None, lr_decay_factor=None, clip=False, clip_value=1.0):
-        self._model = model
-        self._loss_fn = loss_fn
+        self.model = model
+        self.loss_fn = loss_fn
 
         if lr_decay:
             assert(lr_decay_steps > 0) and (lr_decay_factor > 0), "Invalid learning rate decay factors"
@@ -49,31 +59,33 @@ class RMSProp(nnx.Module):
         else:
             opt = optax.rmsprop(learning_rate=lr, eps=epsilon)
 
-        self._optimizer = nnx.Optimizer(model, opt, wrt=nnx.Param)
+        self.optimizer = nnx.Optimizer(model, opt, wrt=nnx.Param)
 
     def __call__(self, inputs, labels):
-        loss, grads = nnx.value_and_grad(self._loss_fn)(self._model, inputs, labels)
-        self._optimizer.update(grads)
+        grad_loss_fn = nnx.value_and_grad(self.loss_fn, has_aux=True)
+        (loss, logits), grads = grad_loss_fn(self._model, inputs, labels)
+        self.optimizer.update(grads)
 
-        return loss
+        return loss, logits
 
 
 class SGD(nnx.Module):
     def __init__(self, model, loss_fn, num_iters, learning_rate=0.01, lr_decay = True):
-        self._model = model
-        self._loss_fn = loss_fn
+        self.model = model
+        self.loss_fn = loss_fn
 
         if lr_decay:
             lr = optax.schedules.linear_schedule(learning_rate, 1e-5, num_iters)
         else:
             lr = learning_rate
 
-        self._optimizer = nnx.Optimizer(model, optax.sgd(learning_rate=lr), wrt=nnx.Param)
+        self.optimizer = nnx.Optimizer(model, optax.sgd(learning_rate=lr), wrt=nnx.Param)
 
     def __call__(self, inputs, labels):
-        loss, grads = nnx.value_and_grad(self._loss_fn)(self._model, inputs, labels)
-        self._optimizer.update(grads)
+        grad_loss_fn = nnx.value_and_grad(self.loss_fn, has_aux=True)
+        (loss, logits), grads = grad_loss_fn(self.model, inputs, labels)
+        self.optimizer.update(grads)
 
-        return self._params, self._opt_state, loss_value
+        return loss
 
 

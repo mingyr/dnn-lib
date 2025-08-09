@@ -1,8 +1,10 @@
+import jax 
+from flax import nnx
+from utils import LossRegression
+from optimizer import *
+
 def test():
     # X and Y data
-    from flax import nnx
-    from utils import LossRegression
-
     x_train = jax.numpy.array([[1.0], [2.0], [3.0]], dtype=jax.numpy.float32)
     y_train = jax.numpy.array([[1.0], [2.0], [3.0]], dtype=jax.numpy.float32)
 
@@ -29,7 +31,7 @@ def test():
     optimizer = SGD(model, loss_fn, 100000)
 
     # optimizer = RMSProp(lr_decay = False)
-    loss = optimizer(x_train, y_train)
+    loss, _ = optimizer(x_train, y_train)
 
     # Launch the graph in a session.
     print(loss)
