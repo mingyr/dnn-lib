@@ -7,7 +7,7 @@ Notably, ordinary class definition allows underscore preceeding member variables
 Meantime, to cater to the functional programming paradigm of JAX, you CANNOT directly jit the object's invoking method. Traditionally, it means you implement the __call__ method, instantiate an object and directly call the object by passing some parameters. Instead, you should do in the following way:
 ```python
     return_value, _ = nnx.jit(Class.__call__)(Obj, x, y)
-```python
+```
 
 
 To use these routines, it is suggested to setup the env variable like "export PYTHONPATH=/path-to-where-dnn-lib-resides/dnn-lib:$PYTHONPATH" in Linux
