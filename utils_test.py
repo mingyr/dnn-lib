@@ -1,6 +1,8 @@
 import os, sys
 from utils import *
+import jax
 import chex
+
 
 def test_jax_ver():
     jax_ver = JAXVer(jax)
@@ -17,24 +19,27 @@ def test_loss():
     logits_xen = jnp.array([[1, 0], [0, 1]], jnp.float32)
     labels_xen = jnp.array([[0], [0]], jnp.int32)
 
-    reg_loss = LossRegression()(logits_reg, labels_reg)
-    xen_loss = LossClassification(num_classes)(logits_xen, labels_xen)
+    reg_loss, _ = LossRegression()(jax.nn.identity, logits_reg, labels_reg)
+    xen_loss, _ = LossClassification(num_classes)(jax.nn.identity, logits_xen, labels_xen)
 
-    reg_val = ValRegression()(logits_reg, labels_reg)
-    xen_val = ValClassification()(logits_xen, labels_xen)
+    reg_val = ValRegression(jax.nn.identity)(logits_reg, labels_reg)
+    xen_val = ValClassification(jax.nn.identity)(logits_xen, labels_xen)
 
-    reg_test = TestRegression()(logits_reg, labels_reg)
-    xen_test = TestClassification()(logits_xen, labels_xen)
+    reg_test = TestRegression(jax.nn.identity)(logits_reg, labels_reg)
+    xen_test = TestClassification(jax.nn.identity)(logits_xen, labels_xen)
 
-    summaries = Summaries()
-    summaries('train', reg_loss)
-    summaries('train', xen_loss)
-    summaries('val', reg_val)
-    summaries('val', xen_val)
-    summaries('test', reg_test)
-    summaries('test', xen_test)
+    print(type(reg_loss))
+    print(reg_loss)
 
-    summaries.dump()
+
+    summary = Summary('/tmp')
+    summary('loss', reg_loss, 0)
+    summary('loss', xen_loss, 1)
+    summary('accu', reg_val, 0)
+    summary('accu', xen_val, 1)
+    summary('stat', reg_test, 0)
+    summary('stat', xen_test, 1)
+
 
 def test_conv():
     rngs = nnx.Rngs(0)
@@ -73,7 +78,7 @@ def test_conv():
 
 if __name__ == "__main__":
     # test_jax_ver()
-    # test_loss()
-    test_conv()
+    test_loss()
+    # test_conv()
 
 

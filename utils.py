@@ -9,6 +9,7 @@ import optax
 import orbax.checkpoint as ocp
 from pathlib import Path
 from functools import partial
+import tensorflow as tf
 
 class JAXVer:
     def __init__(self, jax=None):
@@ -193,58 +194,20 @@ class TestClassification:
         return accuracy
 
 
-class Summaries:
-    def __init__(self):
-        self._summaries = {'train':[], 'val':[], 'test':[], 'stat':[], 'debug':[]}
+class Summary:
+    def __init__(self, file_path):
+        file_path = os.path.join(file_path, "summary")
+        if not os.path.exists(file_path):
+            os.makedirs(file_path)
+        self._summary_writer = tf.summary.create_file_writer(file_path)
 
-    def __call__(self, category, value):
-        self._summaries[category].append(value)
+        self._summary = {'loss': partial(tf.summary.scalar, "loss"),
+                         'accu': partial(tf.summary.scalar, "accu"),
+                         'stat': partial(tf.summary.scalar, "stat")}
 
-    @property
-    def train(self):
-        return self._summaries['train']
-
-    @property
-    def val(self):
-        return self._summaries['val']
-
-    @property
-    def test(self):
-        return self._summaries['test']
-
-    @property
-    def stat(self):
-        return self._summaries['stat']
-
-    @property
-    def debug(self):
-        return self._summaries['debug']
-
-    def dump(self):
-        print("train: ", end='\t')
-        for l in self.train:
-            print(l, end=' ')
-        print('')
-
-        print("val: ", end='\t')
-        for l in self.val:
-            print(l, end=' ')
-        print('')
-
-        print("test: ", end='\t')
-        for l in self.test:
-            print(l, end=' ')
-        print('')
-
-        print("stat: ", end='\t')
-        for l in self.stat:
-            print(l, end=' ')
-        print('')
-
-        print("debug: ", end='\t')
-        for l in self.debug:
-            print(l, end=' ')
-        print('')
+    def __call__(self, category, value, step):
+        with self._summary_writer.as_default():
+            self._summary[category](value, step)
 
 
 class Checkpoint:
