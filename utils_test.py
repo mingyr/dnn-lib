@@ -32,13 +32,16 @@ def test_loss():
     print(reg_loss)
 
 
-    summary = Summary('/tmp')
-    summary('loss', reg_loss, 0)
-    summary('loss', xen_loss, 1)
-    summary('accu', reg_val, 0)
-    summary('accu', xen_val, 1)
-    summary('stat', reg_test, 0)
-    summary('stat', xen_test, 1)
+    
+    # summary = Summary('/tmp')
+    # with summary.as_default():
+    with Summary('/tmp') as summary:
+        summary('loss', reg_loss, 0)
+        summary('loss', xen_loss, 1)
+        summary('accu', reg_val, 0)
+        summary('accu', xen_val, 1)
+        summary('stat', reg_test, 0)
+        summary('stat', xen_test, 1)
 
 
 def test_conv():

@@ -206,8 +206,21 @@ class Summary:
                          'stat': partial(tf.summary.scalar, "stat")}
 
     def __call__(self, category, value, step):
-        with self._summary_writer.as_default():
-            self._summary[category](value, step)
+        self._summary[category](value, step)
+
+    def __enter__(self):
+        # Get the context manager from the writer and enter it
+        self._cm = self._summary_writer.as_default()
+        self._cm.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # Exit the writer context
+        self._cm.__exit__(exc_type, exc_value, traceback)
+
+    def as_default(self):
+        # Just return the writer's context manager
+        return self._summary_writer.as_default()
 
 
 class Checkpoint:
